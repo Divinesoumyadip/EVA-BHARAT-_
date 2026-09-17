@@ -1,0 +1,43 @@
+# Local development stack: PostgreSQL + the Go backend.
+#
+# The frontend is intentionally NOT containerized here - run it with
+# `npm run dev` from ./frontend for fast hot-reload (see README). This
+# compose file exists to get a real Postgres + backend running quickly, the
+# same combination that ships to production.
+#
+# Usage:
+#   docker compose up --build
+#   (backend on http://localhost:8080, Postgres on localhost:5432)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: eva
+      POSTGRES_PASSWORD: eva_dev_pw
+      POSTGRES_DB: eva_media
+    ports:
+      - "5432:5432"
+    volumes:
+      - eva_media_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eva -d eva_media"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgres://eva:eva_dev_pw@postgres:5432/eva_media?sslmode=disable
+      ALLOWED_ORIGIN: http://localhost:5173
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  eva_media_pgdata:
